@@ -1,5 +1,7 @@
 package br.com.clinica.web.support;
 
+import br.com.clinica.service.erro.ValidacaoException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -41,12 +43,44 @@ public final class Json {
 
     private Json() {}
 
-    /** Le o corpo da requisicao e transforma no record que voce pediu. */
+    /**
+     * Le o corpo da requisicao e transforma no record que voce pediu.
+     *
+     * Erro de JSON e culpa do CLIENTE, entao vira ValidacaoException -> 400.
+     * Sem esta traducao, a JsonProcessingException (que estende IOException)
+     * escapava ate o default do tratar() e virava 500: o cliente nao entendia
+     * o que fez de errado e o seu log enchia de "erro nao tratado" que nao
+     * era erro seu. O caso mais comum aqui nao e nem JSON quebrado -- e
+     * mandar "2026-03-15T09:00" num campo OffsetDateTime, que exige o fuso.
+     */
     public static <T> T ler(HttpServletRequest req, Class<T> tipo) throws IOException {
         // getInputStream le os bytes crus do corpo HTTP.
         // ATENCAO: so pode ser lido UMA vez. Uma segunda chamada vem vazia,
-        // porque o stream ja foi consumido.
-        return MAPPER.readValue(req.getInputStream(), tipo);
+        // porque o stream ja foi consumido -- por isso guardamos num byte[]
+        // antes de entregar ao Jackson. De quebra, isso separa "corpo vazio"
+        // de "corpo invalido", que dao mensagens bem diferentes.
+        byte[] bruto = req.getInputStream().readAllBytes();
+
+        if (bruto.length == 0) {
+            throw new ValidacaoException("Corpo da requisicao ausente");
+        }
+
+        try {
+            T corpo = MAPPER.readValue(bruto, tipo);
+
+            // Corpo literalmente "null" e JSON valido, mas nao serve de comando.
+            if (corpo == null) {
+                throw new ValidacaoException("Corpo da requisicao ausente");
+            }
+            return corpo;
+
+        } catch (JsonProcessingException e) {
+            // getOriginalMessage() = so o motivo, sem o "at [Source: ...line: 1]"
+            // que o Jackson anexa e que nao diz nada para quem chamou a API.
+            throw new ValidacaoException("JSON invalido: " + e.getOriginalMessage());
+        }
+        // IOException "de verdade" (cliente derrubou a conexao no meio do envio)
+        // NAO e capturada aqui de proposito: essa sobe e vira 500, corretamente.
     }
 
     /** Serializa o objeto e escreve na resposta com o status informado. */

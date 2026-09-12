@@ -94,8 +94,8 @@ curl -i -X POST http://localhost:8080/clinica-api/api/pacientes \
   -H 'Content-Type: application/json' \
   -d '{"nome":"Maria Souza","cpf":"12345678901","email":"maria@ex.com","nascimento":"1990-05-14"}'
 
-# listar
-curl http://localhost:8080/clinica-api/api/pacientes?pagina=0&tamanho=20
+# listar (pagina e limite valem para pacientes, dentistas e agendamentos)
+curl "http://localhost:8080/clinica-api/api/pacientes?pagina=0&limite=20"
 
 # buscar
 curl -i http://localhost:8080/clinica-api/api/pacientes/1
@@ -108,13 +108,72 @@ curl -i http://localhost:8080/clinica-api/api/pacientes/abc   # 400
 O `clinica-api` no meio da URL e o *context path* (vem do `<finalName>`).
 Se voce fizer deploy como `ROOT.war`, some.
 
-## O que falta (a sua parte)
+## TODO (a sua parte)
 
-1. `DentistaDao` + `DentistaServlet` -- copia do paciente, para pegar o ritmo
-2. `AgendamentoDao` + `AgendamentoService` + `AgendamentoServlet` -- a parte
-   interessante: transacao com varias operacoes e a regra de conflito de horario
-3. `PUT` e `DELETE` no paciente
-4. Testes com Testcontainers (o `pom` ja traz a dependencia)
+Feito ate aqui: CRUD de leitura + POST nas tres entidades, transacao no
+agendamento, constraint de conflito de horario.
+
+### 1. Escrita: PUT e DELETE
+
+- [ ] `PUT /api/pacientes/{id}` -- atualizar
+- [ ] `DELETE /api/pacientes/{id}` -- **decida antes de codar:** paciente com
+      agendamento tem FK apontando para ele e o banco recusa (`23503`).
+      Ou vira 409 ("tem agendamentos"), ou vira soft delete (coluna `ativo`)
+- [ ] `PUT` e `DELETE` em dentista -- mesmo dilema do FK
+- [ ] `doPut`/`doDelete` ausentes devolvem 405 em **HTML** (padrao do
+      `HttpServlet`), nao no formato `ErroResponse`. Some sozinho conforme
+      voce implementa
+
+### 2. Cancelamento e remarcacao
+
+- [ ] Cancelar agendamento -- `UPDATE ... SET status = 'CANCELADO'`.
+      A constraint `agendamentos_sem_conflito` tem `WHERE status <> 'CANCELADO'`,
+      entao o horario se libera sozinho. **Decida antes:** `POST /{id}/cancelar`
+      (acao, regra explicita) ou `PATCH /{id}` com o novo status (mais REST)
+- [ ] Bloquear transicao invalida: nao se cancela `CONCLUIDO` nem `CANCELADO`
+      de novo -> `ConflitoException` -> 409
+- [ ] `PUT /api/agendamentos/{id}` (remarcar) -- o mais dificil: `UPDATE` dentro
+      de transacao, e a `EXCLUDE` pode estourar `23P01` contra OUTRO agendamento
+
+### 3. Bugs e inconsistencias conhecidos
+
+- [x] ~~JSON malformado / corpo vazio devolvia 500~~ -- agora 400 no `Json.ler`
+- [x] ~~`?tamanho` no paciente vs `?limite` nos outros~~ -- padronizado em `limite`
+- [ ] `PacienteService.cadastrar` nao trata `unique_violation` (`23505`).
+      Duas requisicoes simultaneas com o mesmo CPF passam as duas pelo
+      `existeCpf` e a segunda leva 500 em vez de 409. O `DentistaService`
+      ja faz certo -- e so copiar
+- [ ] `/api/pacientes/1/extra` devolve 400 (`Long.parseLong` estoura); dentista
+      e agendamento devolvem 404. O `PacienteServlet` e o mais antigo e nao
+      acompanhou o `split("/")` que os outros dois adotaram
+- [ ] Mensagem errada quando `inicio == fim`: diz "inicio nao pode ser depois
+      de fim" (`AgendamentoService.validar`)
+
+### 4. Regras de negocio que faltam
+
+- [ ] Paciente pode estar em duas cadeiras ao mesmo tempo: a `EXCLUDE` cobre
+      `dentista_id`, nao `paciente_id`. Fecha com uma `V3` e uma segunda
+      constraint, mesma tecnica
+- [ ] `GET /api/agendamentos` nao aceita filtro nenhum, mas o indice
+      `idx_agendamentos_dentista_inicio` foi criado justamente para
+      "agenda do dentista X no dia Y" -- a consulta mais usada numa clinica.
+      (E `ORDER BY inicio DESC` numa agenda e discutivel: o natural e o
+      proximo primeiro)
+- [ ] Nada impede agendar no passado, nem limita duracao
+- [ ] Sem autenticacao: a lista de pacientes e publica, o que anula o
+      mascaramento de CPF do `PacienteResponse`
+
+### 5. Testes (o `pom` ja traz JUnit 5 + Testcontainers)
+
+Ordem sugerida, do mais barato ao mais caro:
+
+- [ ] `validar()` puro -- JUnit sozinho, sem banco. Primeiro verde em 5 minutos
+- [ ] DAO com Testcontainers -- sobe um Postgres real, roda o Flyway
+- [ ] Service com transacao -- "cancelei, o horario aceita outro agendamento"
+      so da para provar contra banco de verdade
+
+> Armadilha: o surefire so roda arquivos terminados em `Test`, `Tests` ou
+> `TestCase`. Motivo numero 1 de "escrevi o teste e o Maven diz 0 tests".
 
 Em cada passo, registre o service novo no construtor do `AppContext`.
 

@@ -51,11 +51,11 @@ public class PacienteServlet extends BaseServlet {
     }
 
     private void listar(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        int pagina  = inteiro(req, "pagina", 0);
-        int tamanho = inteiro(req, "tamanho", 20);
+        int pagina = inteiro(req, "pagina", 0);
+        int limite = inteiro(req, "limite", 20);
 
         List<PacienteResponse> corpo = app.pacientes()
-                .listar(pagina, tamanho)
+                .listar(pagina, limite)
                 .stream()
                 .map(PacienteResponse::de)
                 .toList();
