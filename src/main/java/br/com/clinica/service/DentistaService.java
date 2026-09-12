@@ -81,13 +81,6 @@ public class DentistaService {
                 conn.setAutoCommit(true);
             }
         } catch(SQLException e) {
-            // O existeCro acima NAO e garantia: duas requisicoes simultaneas
-            // com o mesmo CRO passam as duas pelo SELECT antes de qualquer
-            // INSERT acontecer. Quem segura de verdade e o UNIQUE da tabela
-            // (V1__cria_tabelas.sql) -- mesma licao da V2 para agendamentos.
-            //
-            // Traduzindo o SQLSTATE aqui, o perdedor da corrida recebe o mesmo
-            // 409 do caminho normal em vez de um 500 generico.
             if (UNIQUE_VIOLATION.equals(e.getSQLState())) {
                 throw new ConflitoException("Ja existe um dentista com esse CRO");
             }
@@ -98,13 +91,13 @@ public class DentistaService {
     // validacao
     private void validar(NovoDentista req) {
         if (req == null) {
-            throw new ValidacaoException("Corpo da requisicao ausente");
+            throw new ValidacaoException("Corpo da requisição ausente");
         }
         if (req.nome() == null || req.nome().isBlank()) {
-            throw new ValidacaoException("nome e obrigatorio");
+            throw new ValidacaoException("nome é obrigatório");
         }
         if (req.cro() == null || req.cro().isBlank()) {
-            throw new ValidacaoException("cro e obrigatorio");
+            throw new ValidacaoException("cro é obrigatório");
         }
     }
 }

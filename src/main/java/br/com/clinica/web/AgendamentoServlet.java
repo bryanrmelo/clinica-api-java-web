@@ -2,8 +2,6 @@ package br.com.clinica.web;
 
 import br.com.clinica.dto.*;
 import br.com.clinica.model.Agendamento;
-import br.com.clinica.model.Dentista;
-import br.com.clinica.model.projection.AgendamentoResumo;
 import br.com.clinica.web.support.Json;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +10,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Endpoints:
+ *   GET /api/agendamentos ≥ lista (?pagina=0&limite=20)
+ *   GET /api/agendamentos/{id} ≥ busca pelo id
+ *   POST /api/agendamentos ≥ cadastra
+ */
 @WebServlet("/api/agendamentos/*")
 public class AgendamentoServlet extends BaseServlet {
 
@@ -47,17 +51,15 @@ public class AgendamentoServlet extends BaseServlet {
     }
 
     private void listar(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        int page = inteiro(req, "page", 0);
-        int limit = inteiro(req, "limit", 20);
+        int pagina = inteiro(req, "pagina", 0);
+        int limite = inteiro(req, "limite", 20);
 
-        List<AgendamentoResumoResponse> body = app.agendamentos().listar(page, limit).stream().map(AgendamentoResumoResponse::de).toList();
+        List<AgendamentoResumoResponse> body = app.agendamentos().listar(pagina, limite).stream().map(AgendamentoResumoResponse::de).toList();
 
         Json.escrever(resp, 200, body);
     }
 
     private void buscarPorId(long id, HttpServletResponse resp) throws IOException {
-        // Se nao existir, o service lanca NaoEncontradoException e o
-        // BaseServlet transforma em 404. Nao precisa de if aqui.
         Agendamento a = app.agendamentos().buscarPorId(id);
         Json.escrever(resp, 200, AgendamentoResponse.de(a));
     }

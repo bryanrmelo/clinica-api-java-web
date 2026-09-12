@@ -4,10 +4,6 @@ import br.com.clinica.model.Paciente;
 
 import java.time.LocalDate;
 
-/**
- * O que a API DEVOLVE. Aqui voce escolhe o que expor.
- * Exemplo: o CPF sai mascarado, porque nao ha motivo para trafegar inteiro.
- */
 public record PacienteResponse(
         Long id,
         String nome,
@@ -16,7 +12,6 @@ public record PacienteResponse(
         String telefone,
         LocalDate nascimento
 ) {
-    /** Metodo de fabrica: converte o objeto do banco no objeto da resposta. */
     public static PacienteResponse de(Paciente p) {
         return new PacienteResponse(
                 p.id(), p.nome(), mascarar(p.cpf()), p.email(), p.telefone(), p.nascimento());
