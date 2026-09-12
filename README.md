@@ -22,19 +22,49 @@ As versoes estao todas no bloco `<properties>` do `pom.xml`. **Confira se ainda
 sao as atuais** em https://central.sonatype.com antes do primeiro build -- foram
 escritas em setembro/2026 e nao passaram por compilacao.
 
-Dois pontos de atencao:
+Pontos de atencao:
 
 - **Tomcat 10.1** usa `jakarta.servlet-api` **6.0.0**; **Tomcat 11** usa **6.1.0**.
   Trocar de servidor sem trocar essa versao da erro obscuro no deploy.
-- **Jackson 2.x vs 3.x**: o projeto usa 2.x (`com.fasterxml.jackson`). O Jackson 3
-  mudou de groupId e de pacote (`tools.jackson`), entao codigo e tutoriais de 2.x
-  nao funcionam nele sem ajuste. Fique no 2.x por enquanto.
+- **Jackson 2 e 3 convivem no war, de proposito.** O `Json.java` usa o 2.x
+  (`com.fasterxml.jackson`); o Flyway 13 traz o 3.x (`tools.jackson`) por conta
+  propria. Nao ha conflito -- groupId e pacote sao diferentes, cada um usa o seu.
+  O custo e uns 2,5 MB a mais no war. Se ver `jackson-databind` duas vezes em
+  `WEB-INF/lib`, e isso, e esta correto.
+- **SLF4J travado em 2.x pelo `dependencyManagement`.** O HikariCP declara
+  slf4j-api 1.7.36, incompativel com o Logback 1.5. Sem a trava, o 1.7 vence a
+  resolucao e voce perde todos os logs. Nao remova aquele bloco.
+
+## Duas pedras no caminho (ja resolvidas aqui)
+
+Se voce recriar esse projeto do zero um dia, sao os dois erros que vao aparecer:
+
+**`SQLException: No suitable driver`, com o postgresql.jar presente em
+`WEB-INF/lib`.** O `DriverManager` varre os drivers disponiveis uma unica vez,
+quando a classe e inicializada -- no Tomcat isso normalmente ja aconteceu antes
+de o classloader da webapp existir, entao o seu driver nunca se registra.
+Resolvido com `config.setDriverClassName("org.postgresql.Driver")`, que faz o
+Hikari carregar a classe pelo classloader certo.
+
+**`One or more listeners failed to start`, sem nenhum stack trace.** O Tomcat
+manda o erro real para `logs/localhost.AAAA-MM-DD.log`, nao para o console da
+IDE (`catalina.*.log` e do servidor; `localhost.*.log` e da sua aplicacao).
+O `try/catch` com `System.err` no `AppContextListener` traz o stack trace de
+volta para o console.
 
 ## Rodando
 
 ```bash
-docker compose up -d          # sobe o Postgres
+docker compose up -d          # sobe o Postgres na porta 5433 do host
+docker compose ps             # confirme "0.0.0.0:5433->5432/tcp"
 mvn clean package             # gera target/clinica-api.war
+```
+
+Testando o banco antes de subir o Tomcat (o `-p 5433` e obrigatorio, senao o
+psql vai na 5432 e voce testa o banco errado):
+
+```bash
+psql -h localhost -p 5433 -U clinica -d clinica -c "select 1"
 ```
 
 Depois, ou voce copia o `.war` para `webapps/` de um Tomcat instalado, ou --
@@ -49,7 +79,7 @@ Tudo por variavel de ambiente, com defaults que batem com o `docker-compose.yml`
 
 | Variavel | Default |
 |---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/clinica` |
+| `DB_URL` | `jdbc:postgresql://localhost:5433/clinica` |
 | `DB_USER` | `clinica` |
 | `DB_PASSWORD` | `clinica` |
 | `DB_POOL_SIZE` | `10` |

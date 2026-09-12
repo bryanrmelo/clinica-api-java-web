@@ -7,7 +7,10 @@ services:
       POSTGRES_USER: clinica
       POSTGRES_PASSWORD: clinica
     ports:
-      - "5432:5432"
+      # host:container -- o Postgres DENTRO do container continua na 5432.
+      # Quem atende na 5433 e a sua maquina. Evita briga com um Postgres
+      # nativo instalado no Windows, que costuma ocupar a 5432.
+      - "5433:5432"
     volumes:
       # volume nomeado: os dados sobrevivem a "docker compose down".
       # Para zerar o banco de verdade: docker compose down -v

@@ -21,9 +21,25 @@ public final class DataSourceFactory {
 
         // Os defaults sao os valores do docker-compose.yml, para o projeto
         // subir sem configuracao nenhuma na sua maquina.
-        config.setJdbcUrl(env("DB_URL", "jdbc:postgresql://localhost:5432/clinica"));
+        // Porta 5433 e nao 5432: se voce tiver um Postgres nativo instalado no
+        // Windows, os dois brigam pela 5432 e voce conecta no banco errado.
+        config.setJdbcUrl(env("DB_URL", "jdbc:postgresql://localhost:5433/clinica"));
         config.setUsername(env("DB_USER", "clinica"));
         config.setPassword(env("DB_PASSWORD", "clinica"));
+
+        // OBRIGATORIO no Tomcat -- nao e detalhe de estilo.
+        //
+        // Sem esta linha, o Hikari chama DriverManager.getDriver(url) e deixa a
+        // descoberta do driver por conta do DriverManager. So que o
+        // DriverManager varre os drivers disponiveis UMA unica vez, quando a
+        // classe e inicializada -- e no Tomcat isso geralmente ja aconteceu
+        // antes de o classloader da sua webapp existir. Resultado: o
+        // postgresql.jar esta em WEB-INF/lib e mesmo assim voce leva
+        // "SQLException: No suitable driver".
+        //
+        // Informando o nome da classe, o Hikari faz Class.forName pelo
+        // classloader da webapp, o driver se registra, e acabou o problema.
+        config.setDriverClassName("org.postgresql.Driver");
 
         // Tamanho do pool. Regra pratica: comece BAIXO. Mais conexoes nao
         // significa mais throughput -- cada conexao e um processo no Postgres,

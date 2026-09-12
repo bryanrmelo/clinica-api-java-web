@@ -28,6 +28,25 @@
     <testcontainers.version>1.20.4</testcontainers.version>
   </properties>
 
+  <!-- dependencyManagement NAO adiciona dependencia: so manda na VERSAO de
+       quem aparecer, inclusive por caminho transitivo.
+
+       Aqui isso e obrigatorio: o HikariCP declara slf4j-api 1.7.36, e o
+       Logback 1.5 so funciona com slf4j-api 2.x. Sem esta trava, o 1.7 vence
+       a resolucao e o Logback fica invisivel: todo log da aplicacao vai
+       para o lixo, com aquele aviso "Failed to load class StaticLoggerBinder".
+
+       Confira em https://central.sonatype.com se 2.0.16 ainda e a atual. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>2.0.16</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
 
     <!-- provided = precisa para COMPILAR mas NAO entra no .war.
@@ -52,6 +71,21 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
       <version>${hikari.version}</version>
+      <exclusions>
+        <!-- Cinto e suspensorio: o dependencyManagement acima ja resolveria,
+             mas a exclusao garante que o 1.7.36 nao chegue nem perto do war. -->
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Como excluimos o slf4j do Hikari, precisamos declara-lo explicitamente.
+         A versao vem do dependencyManagement la em cima. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
 
     <!-- Migrations. Do Flyway 10 em diante cada banco tem seu modulo separado:
