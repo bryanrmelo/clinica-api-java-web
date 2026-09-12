@@ -1,7 +1,9 @@
 package br.com.clinica.bootstrap;
 
+import br.com.clinica.repository.AgendamentoDAO;
 import br.com.clinica.repository.DentistaDAO;
-import br.com.clinica.repository.PacienteDao;
+import br.com.clinica.repository.PacienteDAO;
+import br.com.clinica.service.AgendamentoService;
 import br.com.clinica.service.DentistaService;
 import br.com.clinica.service.PacienteService;
 import com.zaxxer.hikari.HikariDataSource;
@@ -24,6 +26,7 @@ public final class AppContext {
     private final HikariDataSource dataSource;
     private final PacienteService pacienteService;
     private final DentistaService dentistaService;
+    private final AgendamentoService agendamentoService;
 
     /**
      * Sem "public": so o AppContextListener, que esta no mesmo pacote,
@@ -36,8 +39,9 @@ public final class AppContext {
 
         // A corrente e montada de baixo para cima: primeiro quem nao depende
         // de ninguem (DAOs), depois quem depende deles (services).
-        PacienteDao pacienteDao = new PacienteDao();
+        PacienteDAO pacienteDao = new PacienteDAO();
         DentistaDAO dentistaDAO = new DentistaDAO();
+        AgendamentoDAO agendamentoDAO = new AgendamentoDAO();
 
         // Os DAOs sao variaveis locais de proposito. Eles nao somem no fim do
         // construtor, porque os services guardam referencia. So nao ficam
@@ -45,6 +49,7 @@ public final class AppContext {
         // pelo service, que e quem controla a transacao.
         this.pacienteService = new PacienteService(pacienteDao, dataSource);
         this.dentistaService = new DentistaService(dentistaDAO, dataSource);
+        this.agendamentoService = new AgendamentoService(agendamentoDAO, pacienteDao, dentistaDAO, dataSource);
 
         // Quando voce criar dentista e agendamento, e aqui que eles entram:
         //
@@ -60,6 +65,7 @@ public final class AppContext {
         return pacienteService;
     }
     public DentistaService dentistas() { return dentistaService; }
+    public AgendamentoService agendamentos() { return agendamentoService; }
 
     /** Guarda ESTE objeto no mapa compartilhado do Tomcat. So o listener chama. */
     void publicarEm(ServletContext ctx) {

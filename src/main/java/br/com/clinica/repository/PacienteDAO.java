@@ -24,7 +24,7 @@ import java.util.Optional;
  * A classe nao tem NENHUM campo. Isso a torna stateless e, por consequencia,
  * segura para ser compartilhada por todas as threads do Tomcat.
  */
-public class PacienteDao {
+public class PacienteDAO {
 
     // SQL em constante: fica facil de achar, e o compilador junta as strings
     // em tempo de compilacao (custo zero em execucao).

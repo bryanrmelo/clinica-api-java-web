@@ -149,6 +149,6 @@ resultado errado sob carga.
 | `tratar()` no `BaseServlet` | `@ControllerAdvice` + `@ExceptionHandler` |
 | `setAutoCommit(false)` + `commit`/`rollback` | `@Transactional` |
 | `validar()` na mao | Bean Validation (`@NotBlank`, `@Past`) |
-| `PacienteDao` inteiro | Spring Data JPA |
+| `PacienteDAO` inteiro | Spring Data JPA |
 
 Depois de fazer os dois, voce consegue explicar cada linha da coluna da direita.

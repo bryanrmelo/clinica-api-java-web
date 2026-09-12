@@ -2,7 +2,7 @@ package br.com.clinica.service;
 
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.model.Paciente;
-import br.com.clinica.repository.PacienteDao;
+import br.com.clinica.repository.PacienteDAO;
 import br.com.clinica.service.erro.ConflitoException;
 import br.com.clinica.service.erro.NaoEncontradoException;
 import br.com.clinica.service.erro.RepositorioException;
@@ -28,10 +28,10 @@ import java.util.List;
  */
 public class PacienteService {
 
-    private final PacienteDao dao;
+    private final PacienteDAO dao;
     private final DataSource dataSource;
 
-    public PacienteService(PacienteDao dao, DataSource dataSource) {
+    public PacienteService(PacienteDAO dao, DataSource dataSource) {
         this.dao = dao;
         this.dataSource = dataSource;
     }
