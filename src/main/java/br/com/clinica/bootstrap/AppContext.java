@@ -1,6 +1,8 @@
 package br.com.clinica.bootstrap;
 
+import br.com.clinica.repository.DentistaDAO;
 import br.com.clinica.repository.PacienteDao;
+import br.com.clinica.service.DentistaService;
 import br.com.clinica.service.PacienteService;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.servlet.ServletContext;
@@ -21,6 +23,7 @@ public final class AppContext {
 
     private final HikariDataSource dataSource;
     private final PacienteService pacienteService;
+    private final DentistaService dentistaService;
 
     /**
      * Sem "public": so o AppContextListener, que esta no mesmo pacote,
@@ -34,12 +37,14 @@ public final class AppContext {
         // A corrente e montada de baixo para cima: primeiro quem nao depende
         // de ninguem (DAOs), depois quem depende deles (services).
         PacienteDao pacienteDao = new PacienteDao();
+        DentistaDAO dentistaDAO = new DentistaDAO();
 
         // Os DAOs sao variaveis locais de proposito. Eles nao somem no fim do
         // construtor, porque os services guardam referencia. So nao ficam
         // acessiveis de fora -- ninguem deve falar com um DAO sem passar
         // pelo service, que e quem controla a transacao.
         this.pacienteService = new PacienteService(pacienteDao, dataSource);
+        this.dentistaService = new DentistaService(dentistaDAO, dataSource);
 
         // Quando voce criar dentista e agendamento, e aqui que eles entram:
         //
@@ -54,6 +59,7 @@ public final class AppContext {
     public PacienteService pacientes() {
         return pacienteService;
     }
+    public DentistaService dentistas() { return dentistaService; }
 
     /** Guarda ESTE objeto no mapa compartilhado do Tomcat. So o listener chama. */
     void publicarEm(ServletContext ctx) {
