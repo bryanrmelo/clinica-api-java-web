@@ -1,0 +1,124 @@
+# clinica-api
+
+API REST de agendamento odontologico em **Java Web puro**: Servlet + JDBC no Tomcat.
+Sem Spring, sem JPA, sem CDI. Projeto de estudo para enxergar o que os frameworks
+fazem por baixo.
+
+## Stack
+
+| Peca | Escolha | Por que |
+|---|---|---|
+| Runtime | Java 21 | records, switch pattern matching, text blocks |
+| Container | Tomcat 11 (`.war`) | namespace `jakarta.*` |
+| Web | `jakarta.servlet-api` | roteamento na mao, sem framework MVC |
+| Banco | PostgreSQL 16 via Docker | |
+| Acesso a dados | JDBC + HikariCP | sem ORM, SQL escrito a mao |
+| Migrations | Flyway | versionamento do schema |
+| JSON | Jackson | serializar na mao seria masoquismo |
+
+## Antes de rodar
+
+As versoes estao todas no bloco `<properties>` do `pom.xml`. **Confira se ainda
+sao as atuais** em https://central.sonatype.com antes do primeiro build -- foram
+escritas em setembro/2026 e nao passaram por compilacao.
+
+Dois pontos de atencao:
+
+- **Tomcat 10.1** usa `jakarta.servlet-api` **6.0.0**; **Tomcat 11** usa **6.1.0**.
+  Trocar de servidor sem trocar essa versao da erro obscuro no deploy.
+- **Jackson 2.x vs 3.x**: o projeto usa 2.x (`com.fasterxml.jackson`). O Jackson 3
+  mudou de groupId e de pacote (`tools.jackson`), entao codigo e tutoriais de 2.x
+  nao funcionam nele sem ajuste. Fique no 2.x por enquanto.
+
+## Rodando
+
+```bash
+docker compose up -d          # sobe o Postgres
+mvn clean package             # gera target/clinica-api.war
+```
+
+Depois, ou voce copia o `.war` para `webapps/` de um Tomcat instalado, ou --
+melhor no dia a dia -- configura um *Run Configuration* do tipo Tomcat na IDE
+apontando para o war explodido, e ganha hot reload.
+
+O Flyway roda sozinho no startup: nao precisa criar tabela na mao.
+
+### Configuracao
+
+Tudo por variavel de ambiente, com defaults que batem com o `docker-compose.yml`:
+
+| Variavel | Default |
+|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/clinica` |
+| `DB_USER` | `clinica` |
+| `DB_PASSWORD` | `clinica` |
+| `DB_POOL_SIZE` | `10` |
+
+O mesmo `.war` roda em dev e em producao; so o ambiente muda.
+
+## Endpoints prontos
+
+```bash
+# cadastrar
+curl -i -X POST http://localhost:8080/clinica-api/api/pacientes \
+  -H 'Content-Type: application/json' \
+  -d '{"nome":"Maria Souza","cpf":"12345678901","email":"maria@ex.com","nascimento":"1990-05-14"}'
+
+# listar
+curl http://localhost:8080/clinica-api/api/pacientes?pagina=0&tamanho=20
+
+# buscar
+curl -i http://localhost:8080/clinica-api/api/pacientes/1
+
+# erros
+curl -i http://localhost:8080/clinica-api/api/pacientes/999   # 404
+curl -i http://localhost:8080/clinica-api/api/pacientes/abc   # 400
+```
+
+O `clinica-api` no meio da URL e o *context path* (vem do `<finalName>`).
+Se voce fizer deploy como `ROOT.war`, some.
+
+## O que falta (a sua parte)
+
+1. `DentistaDao` + `DentistaServlet` -- copia do paciente, para pegar o ritmo
+2. `AgendamentoDao` + `AgendamentoService` + `AgendamentoServlet` -- a parte
+   interessante: transacao com varias operacoes e a regra de conflito de horario
+3. `PUT` e `DELETE` no paciente
+4. Testes com Testcontainers (o `pom` ja traz a dependencia)
+
+Em cada passo, registre o service novo no construtor do `AppContext`.
+
+## Mapa mental: o que cada camada faz
+
+```
+HTTP  ->  Servlet   traduz HTTP <-> objeto. Nao valida, nao sabe SQL.
+      ->  Service   valida, decide, CONTROLA A TRANSACAO.
+      ->  DAO       so SQL. Recebe a Connection, nunca pega do pool.
+      ->  Postgres
+```
+
+## A armadilha numero um
+
+Os objetos do `AppContext` sao criados **uma vez** e usados por **todas as
+threads** ao mesmo tempo -- o Tomcat atende requisicoes em paralelo reusando
+os mesmos servlets e services.
+
+Entao service e DAO precisam ser *stateless*: nada de guardar dado da
+requisicao atual num campo da classe. So variavel local dentro do metodo.
+Vindo do PHP, onde cada requisicao vive isolada, esse e o erro mais facil de
+cometer e o mais dificil de diagnosticar -- funciona perfeito em teste e da
+resultado errado sob carga.
+
+## Onde o Spring entra depois
+
+| Voce escreveu a mao | O Spring faz com |
+|---|---|
+| `AppContext` | `ApplicationContext` + `@Service`, `@Component` |
+| `getPathInfo()` + `if` | `@GetMapping("/{id}")` |
+| `Json.ler` / `Json.escrever` | `@RequestBody` / `@ResponseBody` |
+| `tratar()` no `BaseServlet` | `@ControllerAdvice` + `@ExceptionHandler` |
+| `setAutoCommit(false)` + `commit`/`rollback` | `@Transactional` |
+| `validar()` na mao | Bean Validation (`@NotBlank`, `@Past`) |
+| `PacienteDao` inteiro | Spring Data JPA |
+
+Depois de fazer os dois, voce consegue explicar cada linha da coluna da direita.

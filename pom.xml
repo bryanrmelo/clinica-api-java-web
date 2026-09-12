@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>br.com.clinica</groupId>
+  <artifactId>clinica-api</artifactId>
+  <version>1.0.0</version>
+
+  <!-- war: o build gera target/clinica-api.war, formato que o Tomcat carrega. -->
+  <packaging>war</packaging>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Todas as versoes ficam aqui. Para atualizar, mexe so neste bloco.
+         Confira o que esta atual em https://central.sonatype.com antes de rodar. -->
+    <servlet.version>6.1.0</servlet.version>   <!-- 6.1.0 = Tomcat 11 | use 6.0.0 no Tomcat 10.1 -->
+    <postgres.version>42.7.4</postgres.version>
+    <hikari.version>6.2.1</hikari.version>
+    <flyway.version>13.3.0</flyway.version>
+    <jackson.version>2.21.0</jackson.version>
+    <logback.version>1.5.12</logback.version>
+    <junit.version>5.11.4</junit.version>
+    <testcontainers.version>1.20.4</testcontainers.version>
+  </properties>
+
+  <dependencies>
+
+    <!-- provided = precisa para COMPILAR mas NAO entra no .war.
+         O Tomcat ja tem estas classes; empacotar junto causa conflito. -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>${servlet.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Driver JDBC do Postgres: traduz chamadas Java em protocolo do banco. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${postgres.version}</version>
+    </dependency>
+
+    <!-- Pool de conexoes. Abrir conexao TCP + autenticar custa caro;
+         o pool mantem um punhado abertas e empresta/devolve. -->
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+      <version>${hikari.version}</version>
+    </dependency>
+
+    <!-- Migrations. Do Flyway 10 em diante cada banco tem seu modulo separado:
+         flyway-core sozinho NAO reconhece Postgres. -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+      <version>${flyway.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <version>${flyway.version}</version>
+    </dependency>
+
+    <!-- JSON. "Sem Spring" nao significa serializar JSON na mao. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <!-- Modulo separado que ensina o Jackson a lidar com LocalDate/OffsetDateTime.
+         Sem ele, datas viram um objeto JSON esquisito ou estouram erro. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <!-- Logs. Hikari e Flyway falam via SLF4J; o Logback e a implementacao. -->
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>${logback.version}</version>
+    </dependency>
+
+    <!-- test = so existe durante os testes, nao vai para o .war -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <finalName>clinica-api</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.4.0</version>
+        <configuration>
+          <!-- Sem isso o build exige um WEB-INF/web.xml.
+               Nao temos: tudo e configurado por anotacao (@WebServlet, @WebListener). -->
+          <failOnMissingWebXml>false</failOnMissingWebXml>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

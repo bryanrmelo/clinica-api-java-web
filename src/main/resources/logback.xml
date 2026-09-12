@@ -1,0 +1,17 @@
+<configuration>
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Em DEBUG o Hikari conta quantas conexoes estao em uso.
+       Util para ver o pool trabalhando. -->
+  <logger name="com.zaxxer.hikari" level="INFO"/>
+  <logger name="org.flywaydb" level="INFO"/>
+  <logger name="br.com.clinica" level="DEBUG"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>
