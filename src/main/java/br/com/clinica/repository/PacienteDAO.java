@@ -1,5 +1,6 @@
 package br.com.clinica.repository;
 
+import br.com.clinica.dto.AtualizarPaciente;
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.model.Paciente;
 
@@ -8,6 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -26,31 +28,40 @@ import java.util.Optional;
  */
 public class PacienteDAO {
 
+    private static final String TABLE_NAME = "pacientes";
+
     // SQL em constante: fica facil de achar, e o compilador junta as strings
     // em tempo de compilacao (custo zero em execucao).
     private static final String SQL_LISTAR = """
             SELECT id, nome, cpf, email, telefone, nascimento, criado_em
-              FROM pacientes
+              FROM %s
              ORDER BY nome
              LIMIT ? OFFSET ?
-            """;
+            """.formatted(TABLE_NAME);
 
     private static final String SQL_POR_ID = """
             SELECT id, nome, cpf, email, telefone, nascimento, criado_em
-              FROM pacientes
+              FROM %s
              WHERE id = ?
-            """;
+            """.formatted(TABLE_NAME);
 
-    private static final String SQL_EXISTE_CPF = "SELECT 1 FROM pacientes WHERE cpf = ?";
+    private static final String SQL_EXISTE_CPF = "SELECT 1 FROM %s WHERE cpf = ?".formatted(TABLE_NAME);
 
     // RETURNING e especifico do Postgres e resolve um problema chato:
     // o INSERT ja devolve a linha gravada, com id e criado_em preenchidos
     // pelo banco. Sem isso seriam duas idas ao banco (INSERT + SELECT).
     private static final String SQL_INSERIR = """
-            INSERT INTO pacientes (nome, cpf, email, telefone, nascimento)
+            INSERT INTO %s (nome, cpf, email, telefone, nascimento)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
-            """;
+            """.formatted(TABLE_NAME);
+
+    private static final String SQL_ATUALIZAR = """
+            UPDATE %s 
+            SET nome = ?, email = ?, telefone = ?, nascimento = ?
+            WHERE id = ?
+            RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
+            """.formatted(TABLE_NAME);
 
     public List<Paciente> listar(Connection conn, int limite, int offset) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(SQL_LISTAR)) {
@@ -101,6 +112,21 @@ public class PacienteDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return mapear(rs);
+            }
+        }
+    }
+
+    public Optional<Paciente> atualizar(Connection conn, Long id, AtualizarPaciente cmd) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(SQL_ATUALIZAR)) {
+            ps.setString(1, cmd.nome());
+            ps.setString(2, cmd.email());
+            ps.setString(3, cmd.telefone());
+            ps.setObject(4, cmd.nascimento());
+
+            ps.setLong(5, id);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(mapear(rs)) : Optional.empty();
             }
         }
     }

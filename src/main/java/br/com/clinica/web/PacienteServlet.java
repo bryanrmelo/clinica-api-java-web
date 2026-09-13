@@ -1,5 +1,6 @@
 package br.com.clinica.web;
 
+import br.com.clinica.dto.AtualizarPaciente;
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.dto.PacienteResponse;
 import br.com.clinica.model.Paciente;
@@ -48,6 +49,21 @@ public class PacienteServlet extends BaseServlet {
 
         resp.setHeader("Location", req.getRequestURI() + "/" + salvo.id());
         Json.escrever(resp, 201, PacienteResponse.de(salvo));
+    }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+
+        String path = req.getPathInfo();
+        if (path == null || path.equals("/")) {
+            Json.erro(resp, 405, "PUT nao e permitido neste caminho");
+            return;
+        }
+        long id = Long.parseLong(path.substring(1));
+        AtualizarPaciente cmd = Json.ler(req, AtualizarPaciente.class);
+        Paciente salvo = app.pacientes().atualizar(id, cmd);
+
+        Json.escrever(resp, 200, PacienteResponse.de(salvo));
     }
 
     private void listar(HttpServletRequest req, HttpServletResponse resp) throws IOException {
