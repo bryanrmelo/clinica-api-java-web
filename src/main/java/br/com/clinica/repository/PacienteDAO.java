@@ -1,5 +1,6 @@
 package br.com.clinica.repository;
 
+import br.com.clinica.dto.AlterarPaciente;
 import br.com.clinica.dto.AtualizarPaciente;
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.model.Paciente;
@@ -33,35 +34,46 @@ public class PacienteDAO {
     // SQL em constante: fica facil de achar, e o compilador junta as strings
     // em tempo de compilacao (custo zero em execucao).
     private static final String SQL_LISTAR = """
-            SELECT id, nome, cpf, email, telefone, nascimento, criado_em
-              FROM %s
-             ORDER BY nome
-             LIMIT ? OFFSET ?
-            """.formatted(TABLE_NAME);
+        SELECT id, nome, cpf, email, telefone, nascimento, criado_em
+          FROM %s
+         ORDER BY nome
+         LIMIT ? OFFSET ?
+        """.formatted(TABLE_NAME);
 
     private static final String SQL_POR_ID = """
-            SELECT id, nome, cpf, email, telefone, nascimento, criado_em
-              FROM %s
-             WHERE id = ?
-            """.formatted(TABLE_NAME);
+        SELECT id, nome, cpf, email, telefone, nascimento, criado_em
+          FROM %s
+         WHERE id = ?
+        """.formatted(TABLE_NAME);
 
-    private static final String SQL_EXISTE_CPF = "SELECT 1 FROM %s WHERE cpf = ?".formatted(TABLE_NAME);
+    private static final String SQL_EXISTE_CPF = """
+        SELECT 1
+            FROM %s
+            WHERE cpf = ?
+        """.formatted(TABLE_NAME);
 
-    // RETURNING e especifico do Postgres e resolve um problema chato:
-    // o INSERT ja devolve a linha gravada, com id e criado_em preenchidos
-    // pelo banco. Sem isso seriam duas idas ao banco (INSERT + SELECT).
     private static final String SQL_INSERIR = """
-            INSERT INTO %s (nome, cpf, email, telefone, nascimento)
-            VALUES (?, ?, ?, ?, ?)
-            RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
-            """.formatted(TABLE_NAME);
+        INSERT INTO %s (nome, cpf, email, telefone, nascimento)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
+        """.formatted(TABLE_NAME);
 
     private static final String SQL_ATUALIZAR = """
-            UPDATE %s 
-            SET nome = ?, email = ?, telefone = ?, nascimento = ?
-            WHERE id = ?
-            RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
-            """.formatted(TABLE_NAME);
+        UPDATE %s 
+        SET nome = ?, email = ?, telefone = ?, nascimento = ?
+        WHERE id = ?
+        RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
+        """.formatted(TABLE_NAME);
+
+    private static final String SQL_ALTERAR = """
+        UPDATE %s
+        SET nome       = COALESCE(CAST(? AS varchar), nome),
+            email      = COALESCE(CAST(? AS varchar), email),
+            telefone   = COALESCE(CAST(? AS varchar), telefone),
+            nascimento = COALESCE(CAST(? AS timestamptz), nascimento)
+        WHERE id = ?
+        RETURNING id, nome, cpf, email, telefone, nascimento, criado_em
+        """.formatted(TABLE_NAME);
 
     public List<Paciente> listar(Connection conn, int limite, int offset) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(SQL_LISTAR)) {
@@ -122,6 +134,21 @@ public class PacienteDAO {
             ps.setString(2, cmd.email());
             ps.setString(3, cmd.telefone());
             ps.setObject(4, cmd.nascimento());
+
+            ps.setLong(5, id);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(mapear(rs)) : Optional.empty();
+            }
+        }
+    }
+
+    public Optional<Paciente> alterar(Connection conn, Long id, AlterarPaciente cmd) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(SQL_ALTERAR)) {
+            ps.setObject(1, cmd.nome(), Types.VARCHAR);
+            ps.setObject(2, cmd.email(), Types.VARCHAR);
+            ps.setObject(3, cmd.telefone(), Types.VARCHAR);
+            ps.setObject(4, cmd.nascimento(), Types.TIMESTAMP_WITH_TIMEZONE);
 
             ps.setLong(5, id);
 

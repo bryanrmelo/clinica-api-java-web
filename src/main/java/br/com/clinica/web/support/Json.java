@@ -75,8 +75,9 @@ public final class Json {
             return corpo;
 
         } catch (JsonProcessingException e) {
-            // getOriginalMessage() = so o motivo, sem o "at [Source: ...line: 1]"
-            // que o Jackson anexa e que nao diz nada para quem chamou a API.
+            // Validacao que veio do construtor do record: o JSON estava bem formado,
+            // o conteudo e que nao presta. Devolve a mensagem original, limpa.
+            if (e.getCause() instanceof ValidacaoException v) throw v;
             throw new ValidacaoException("JSON invalido: " + e.getOriginalMessage());
         }
         // IOException "de verdade" (cliente derrubou a conexao no meio do envio)

@@ -53,6 +53,40 @@ public abstract class BaseServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Extrai o {id} de um caminho de recurso unico, como "/42".
+     *
+     * O split e o motivo de existir: sem ele, "/42/extra" vira
+     * Long.parseLong("42/extra") -> NumberFormatException -> 400
+     * "Identificador invalido", que e uma resposta mentirosa -- o
+     * identificador esta otimo, quem nao existe e o caminho. Com o split
+     * da 404, que e o que o DentistaServlet ja fazia na mao.
+     *
+     * Quem chama nao precisa tratar nada: NaoEncontradoException e
+     * NumberFormatException ja viram 404 e 400 no tratar() ali em cima.
+     */
+    protected long idDoPath(HttpServletRequest req) {
+        String path = req.getPathInfo();
+
+        // ATENCAO: para "/api/pacientes" (sem barra no fim) o getPathInfo
+        // devolve NULL, nao "". Um path.substring(1) direto aqui seria
+        // NullPointerException -> 500 em vez do 404 que o cliente merece.
+        if (path == null || path.isEmpty() || path.equals("/")) {
+            throw new NaoEncontradoException("Informe o id do recurso");
+        }
+
+        // substring(1) tira a barra da frente; o split quebra o resto.
+        // "42" -> ["42"] | "42/extra" -> ["42", "extra"] | "42/" -> ["42"],
+        // porque o split descarta os vazios do fim.
+        String[] partes = path.substring(1).split("/");
+
+        if (partes.length != 1) {
+            throw new NaoEncontradoException("Recurso nao encontrado");
+        }
+
+        return Long.parseLong(partes[0]);   // NumberFormatException vira 400
+    }
+
     protected int inteiro(HttpServletRequest req, String nome, int padrao) {
         String valor = req.getParameter(nome);
         if (valor == null || valor.isBlank()) return padrao;

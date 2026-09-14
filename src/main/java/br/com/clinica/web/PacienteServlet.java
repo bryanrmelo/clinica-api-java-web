@@ -1,5 +1,6 @@
 package br.com.clinica.web;
 
+import br.com.clinica.dto.AlterarPaciente;
 import br.com.clinica.dto.AtualizarPaciente;
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.dto.PacienteResponse;
@@ -17,6 +18,7 @@ import java.util.List;
  *   GET /api/pacientes ≥ lista (?pagina=0&limite=20)
  *   GET /api/pacientes/{id} ≥ busca pelo id
  *   POST /api/pacientes ≥ cadastra
+ *   PUT /api/pacientes/{id} ≥ substitui (campo ausente vira null)
  */
 @WebServlet("/api/pacientes/*")
 public class PacienteServlet extends BaseServlet {
@@ -29,8 +31,7 @@ public class PacienteServlet extends BaseServlet {
         if (path == null || path.equals("/")) {
             listar(req, resp);
         } else {
-            long id = Long.parseLong(path.substring(1));
-            buscar(id, resp);
+            buscar(idDoPath(req), resp);
         }
     }
 
@@ -39,7 +40,7 @@ public class PacienteServlet extends BaseServlet {
 
         String path = req.getPathInfo();
         if (path != null && !path.equals("/")) {
-            Json.erro(resp, 405, "POST nao e permitido neste caminho");
+            Json.erro(resp, 405, "POST não é e permitido neste caminho");
             return;
         }
 
@@ -56,12 +57,27 @@ public class PacienteServlet extends BaseServlet {
 
         String path = req.getPathInfo();
         if (path == null || path.equals("/")) {
-            Json.erro(resp, 405, "PUT nao e permitido neste caminho");
+            Json.erro(resp, 405, "PUT não é permitido neste caminho");
             return;
         }
-        long id = Long.parseLong(path.substring(1));
+        long id = idDoPath(req);
         AtualizarPaciente cmd = Json.ler(req, AtualizarPaciente.class);
         Paciente salvo = app.pacientes().atualizar(id, cmd);
+
+        Json.escrever(resp, 200, PacienteResponse.de(salvo));
+    }
+
+    @Override
+    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String path = req.getPathInfo();
+        if (path == null || path.equals("/")) {
+            Json.erro(resp, 405, "PATCH não é permitido neste caminho");
+            return;
+        }
+
+        long id = idDoPath(req);
+        AlterarPaciente cmd = Json.ler(req, AlterarPaciente.class);
+        Paciente salvo = app.pacientes().alterar(id, cmd);
 
         Json.escrever(resp, 200, PacienteResponse.de(salvo));
     }

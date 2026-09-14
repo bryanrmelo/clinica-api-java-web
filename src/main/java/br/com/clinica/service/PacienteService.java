@@ -1,5 +1,6 @@
 package br.com.clinica.service;
 
+import br.com.clinica.dto.AlterarPaciente;
 import br.com.clinica.dto.AtualizarPaciente;
 import br.com.clinica.dto.NovoPaciente;
 import br.com.clinica.model.Paciente;
@@ -79,6 +80,27 @@ public class PacienteService {
 
             try {
                 Paciente salvo = dao.atualizar(conn, id, req).orElseThrow(() -> new NaoEncontradoException("Paciente " + id + " nao encontrado"));
+                conn.commit();
+                return salvo;
+
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+
+        } catch (SQLException e) {
+            throw new RepositorioException("Falha ao atualizar o paciente #" + id, e);
+        }
+    }
+
+    public Paciente alterar(Long id, AlterarPaciente req) {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+
+            try {
+                Paciente salvo = dao.alterar(conn, id, req).orElseThrow(() -> new NaoEncontradoException("Paciente " + id + " nao encontrado"));
                 conn.commit();
                 return salvo;
 
